@@ -145,8 +145,10 @@ def on_message(client, userdata, msg):
 
 # Button callback using interrupt
 def button_callback(channel):
-    print("[BUTTON] Interrupt triggered. Toggling valve.")
-    set_valve(not valve_on)
+    time.sleep(0.03)
+    if GPIO.input(BUTTON_PIN) == GPIO.LOW:
+        print("[BUTTON] Interrupt triggered. Toggling valve.")
+        set_valve(not valve_on)
 
 # Start MQTT client
 mqtt_client.on_connect = on_connect
