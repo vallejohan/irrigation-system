@@ -18,28 +18,30 @@ GPIO.setup(LED_PIN, GPIO.OUT)
 GPIO.output(LED_PIN, GPIO.LOW)
 GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
-# Valve variables
+# Valve setup
 valve_on = False
 valve_timer = None
 
-# MQTT variables
+# MQTT setup
 moisture_level = 0
 moisture_threshold = 0
 manual_mode = False
 valve_open_time_m = 0
 valve_open_time_s = 5
 open_valve = False
+valve_state_changed = False
 
 mqtt_host = "homeassistant.local"
 mqtt_port = 1883
 mqtt_username = os.getenv("MQTT_USERNAME")
 mqtt_password = os.getenv("MQTT_PASSWORD")
 
+mqtt_client = mqtt.Client()
+mqtt_client.username_pw_set(mqtt_username, mqtt_password)
+
 # Lock for thread-safe valve operations
 valve_lock = threading.Lock()
 
-mqtt_client = mqtt.Client()
-mqtt_client.username_pw_set(mqtt_username, mqtt_password)
 
 def heartbeat_loop():
     while True:
@@ -84,14 +86,15 @@ def auto_close_valve_after(duration_sec):
 
 def handle_mqtt_data():
     """Process current moisture and threshold values to decide if valve should turn on."""
-    global valve_open_time_m, valve_open_time_s, open_valve
+    global valve_open_time_m, valve_open_time_s, open_valve, valve_state_changed
 
     if not manual_mode and moisture_level < moisture_threshold:
         print("[MQTT] Moisture too low. Opening valve.")
         duration = valve_open_time_m * 60 + valve_open_time_s
         set_valve(True)
         auto_close_valve_after(duration)
-    elif manual_mode and open_valve:
+    elif manual_mode and valve_state_changed:
+        valve_state_changed = False
         if open_valve == True:
             print("[MQTT] Manual mode active. Opening valve.")
         else:
@@ -110,7 +113,7 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     global moisture_level, moisture_threshold, manual_mode
-    global valve_open_time_m, valve_open_time_s, open_valve
+    global valve_open_time_m, valve_open_time_s, open_valve, valve_state_changed
 
     topic = msg.topic
     payload = msg.payload.decode()
@@ -127,6 +130,7 @@ def on_message(client, userdata, msg):
         elif topic == "garden/valve_open_time_s":
             valve_open_time_s = int(payload)
         elif topic == "garden/open_valve":
+            valve_state_changed = True
             if payload.lower() == "true":
                 open_valve = True
             else:
@@ -141,12 +145,8 @@ def on_message(client, userdata, msg):
 
 # Button callback using interrupt
 def button_callback(channel):
-    time.sleep(0.03)
-    if GPIO.input(BUTTON_PIN) == GPIO.LOW:
-        print("[BUTTON] Interrupt triggered. Toggling valve.")
-        set_valve(not valve_on)
-    else:
-        print("[BUTTON] Spurious interrupt ignored.")
+    print("[BUTTON] Interrupt triggered. Toggling valve.")
+    set_valve(not valve_on)
 
 # Start MQTT client
 mqtt_client.on_connect = on_connect
