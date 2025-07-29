@@ -84,7 +84,7 @@ def auto_close_valve_after(duration_sec):
 
 def handle_mqtt_data():
     """Process current moisture and threshold values to decide if valve should turn on."""
-    global valve_open_time_m, valve_open_time_s
+    global valve_open_time_m, valve_open_time_s, open_valve
 
     if not manual_mode and moisture_level < moisture_threshold:
         print("[MQTT] Moisture too low. Opening valve.")
@@ -110,7 +110,7 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     global moisture_level, moisture_threshold, manual_mode
-    global valve_open_time_m, valve_open_time_s
+    global valve_open_time_m, valve_open_time_s, open_valve
 
     topic = msg.topic
     payload = msg.payload.decode()
