@@ -28,6 +28,7 @@ moisture_threshold = 0
 manual_mode = False
 valve_open_time_m = 0
 valve_open_time_s = 5
+open_valve = False
 
 mqtt_host = "homeassistant.local"
 mqtt_port = 1883
@@ -90,6 +91,12 @@ def handle_mqtt_data():
         duration = valve_open_time_m * 60 + valve_open_time_s
         set_valve(True)
         auto_close_valve_after(duration)
+    elif manual_mode and open_valve:
+        if open_valve == True:
+            print("[MQTT] Manual mode active. Opening valve.")
+        else:
+            print("[MQTT] Manual mode active. Closing valve.")
+        set_valve(open_valve)
 
 
 def on_connect(client, userdata, flags, rc):
@@ -97,6 +104,7 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe("garden/moisture_level")
     client.subscribe("garden/moisture_threshold")
     client.subscribe("garden/manual_mode")
+    client.subscribe("garden/open_valve")
     client.subscribe("garden/valve_open_time_m")
     client.subscribe("garden/valve_open_time_s")
 
@@ -118,6 +126,11 @@ def on_message(client, userdata, msg):
             valve_open_time_m = int(payload)
         elif topic == "garden/valve_open_time_s":
             valve_open_time_s = int(payload)
+        elif topic == "garden/open_valve":
+            if payload.lower() == "true":
+                open_valve = True
+            else:
+                open_valve = False
 
         print(f"[MQTT] Received {topic}: {payload}")
         handle_mqtt_data()
